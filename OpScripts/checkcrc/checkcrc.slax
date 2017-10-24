@@ -1,0 +1,72 @@
+version 1.0;
+ns junos = "http://xml.juniper.net/junos/*/junos";
+ns xnm = "http://xml.juniper.net/xnm/1.1/xnm";
+ns jcs = "http://xml.juniper.net/junos/commit-scripts/1.0";
+import "../import/junos.xsl";
+ 
+/*------------------------------------------------*/
+/* This the version 1.0 of the op script checkcrc */
+/*------------------------------------------------*/
+ 
+ 
+ 
+match / {
+<op-script-results> {
+ 
+        expr jcs:output ($localtime);
+        expr jcs:output ("Please wait 30 seconds - during stats gathering...");
+ 
+/* Take traces before */
+ 
+        var $myrpc1 = <get-interface-information> {
+                                 <statistics>;
+                                 <detail>;
+                                }
+        var $myif1 = jcs:invoke ($myrpc1);
+ 
+        expr jcs:sleep(30);
+ 
+/* Take traces after */
+ 
+        var $myrpc2 = <get-interface-information> {
+                                 <statistics>;
+                                 <detail>;
+                                }
+        var $myif2 = jcs:invoke ($myrpc2);
+ 
+/* Now compare */                       
+/* only physical interfaces */
+/* only interfaces in up/up state */
+        <output> "";
+        <output> "";
+        <output> "+---------------------------------------------------------------+";
+        <output> jcs:printf('|%-10s |%-11s |%-11s |%-11s |%-11s |\n',"Interface", "Input pps", "CRC Counter","Delta CRC", "CRC pps" );
+        <output> "+---------------------------------------------------------------+";
+        for-each( $myif1/physical-interface/name ) {
+ 
+                        var $name = .;
+                        var $prfx = substring-before($name, "-");
+                        var $admin = ../admin-status;
+                        var $oper = ../oper-status;
+ 
+                        if ($prfx == "fe" || $prfx == "ge" || $prfx == "xe" || $prfx == "et")
+                        {
+                                if ($admin == "up" && $oper == "up") {
+                                        var $fram1 = ../input-error-list/framing-errors;
+                                        var $pps1 = ../traffic-statistics/input-packets;
+                                        var $fram2 = $myif2/physical-interface[name==$name]/input-error-list/framing-errors;
+                                        var $pps2 = $myif2/physical-interface[name==$name]/traffic-statistics/input-packets;
+                                        var $rate = ( ($pps2 - $pps1) div 30 ) + 0.1;
+                                        var $delta = $fram2 - $fram1;
+                                        var $framps = ($delta div 30) + 0.1;
+                                        var $rate2 =  substring-before($rate, ".");
+                                        var $framps2 = substring-before($framps, ".");
+                                        <output> jcs:printf('|%-10s |%-11i |%-11i |%-11i |%-11i |\n',$name, $rate2, $fram2, $delta, $framps2 );
+                                }
+ 
+                        }
+        }
+        <output> "+---------------------------------------------------------------+";
+ 
+}
+}
