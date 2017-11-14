@@ -1,0 +1,30 @@
+version 1.0;
+ns junos = "http://xml.juniper.net/junos/*/junos";
+ns xnm = "http://xml.juniper.net/xnm/1.1/xnm";
+ns jcs = "http://xml.juniper.net/junos/commit-scripts/1.0";
+import "../import/junos.xsl";
+
+/*------------------------------------------------*/
+/* This the version 1.0 of the op script checkcp */
+/*------------------------------------------------*/
+
+match / {
+<op-script-results> {
+/* Take traces */
+var $myrpc = <get-ddos-protocols-statistics> {};
+var $myddos = jcs:invoke ($myrpc);
+/* Now Display */
+ <output> "";
+ <output> "";
+ <output> "+-------------------------------------------------------------------------+";
+ <output> jcs:printf('|%-20s |%-20s |%-11s |%-10s\n',"Protocol","Packet Type","Current pps","Max pps Observed");
+ <output> "+-------------------------------------------------------------------------+";
+ for-each( $myddos/ddos-protocol-group/ddos-protocol/packet-type ) {
+    var $name = .;
+    if (../ddos-system-statistics/packet-arrival-rate-max != "0"){
+      <output> jcs:printf('|%-20s |%-20s |%-11s |%-10s\n',../../group-name,$name,../ddos-system-statistics/packet-arrival-rate,../ddos-system-statistics/packet-arrival-rate-max);
+     }
+  }
+<output> "+-------------------------------------------------------------------------+";
+}
+}
